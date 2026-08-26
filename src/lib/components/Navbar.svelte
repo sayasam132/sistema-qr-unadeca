@@ -1,13 +1,21 @@
 <script lang="ts">
 	import { page } from '$app/state';
 
-	const enlaces = [
+	const enlacesBase = [
 		{ href: '/inicio', etiqueta: 'Inicio' },
 		{ href: '/mi-qr', etiqueta: 'Mi QR' },
 		{ href: '/mi-perfil', etiqueta: 'Mi perfil' },
 		{ href: '/notificaciones', etiqueta: 'Notificaciones' },
 		{ href: '/solicitud-permiso', etiqueta: 'Solicitar permiso' }
 	];
+
+	let rol = $derived(page.data.perfil?.rol as string | null | undefined);
+
+	let enlaces = $derived([
+		...enlacesBase,
+		...(rol === 'admin' ? [{ href: '/admin', etiqueta: 'Administración' }] : []),
+		...(rol === 'guardia' ? [{ href: '/guardia', etiqueta: 'Guardia' }] : [])
+	]);
 </script>
 
 <nav class="navbar">
