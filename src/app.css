@@ -1,13 +1,20 @@
 :root {
 	--color-navy: #0d1b4b;
 	--color-navy-light: #16296b;
+	--color-navy-sidebar: #060e2e;
 	--color-teal: #00b4d8;
+	--color-mint: #00f5d4;
+	--color-danger: #ff6b6b;
+	--color-danger-strong: #e63946;
 	--color-bg: #f5f7fb;
 	--color-surface: #ffffff;
+	--color-input-bg: #f0f4ff;
 	--color-text: #1a1a2e;
 	--color-text-muted: #5c6280;
 	--color-border: #dde1ee;
+	--color-divider: #eee;
 	--radius: 10px;
+	--radius-lg: 16px;
 	--font-family: Arial, Helvetica, sans-serif;
 }
 
