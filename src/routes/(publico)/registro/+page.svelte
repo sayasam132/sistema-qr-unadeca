@@ -16,6 +16,7 @@
 	let rostroValidado = $state(false);
 	let enviando = $state(false);
 	let error = $state<string | null>(null);
+	let mostrarConsentimiento = $state(false);
 
 	async function manejarArchivo(evento: Event) {
 		error = null;
@@ -44,7 +45,7 @@
 		}
 	}
 
-	async function manejarEnvio(evento: SubmitEvent) {
+	function manejarEnvio(evento: SubmitEvent) {
 		evento.preventDefault();
 		error = null;
 
@@ -52,6 +53,14 @@
 			error = 'Subí una foto con tu rostro visible antes de continuar.';
 			return;
 		}
+
+		mostrarConsentimiento = true;
+	}
+
+	async function confirmarRegistro() {
+		mostrarConsentimiento = false;
+
+		if (!archivoFoto) return;
 
 		enviando = true;
 		try {
@@ -114,7 +123,7 @@
 </svelte:head>
 
 <div class="auth">
-	<form class="tarjeta auth__formulario" onsubmit={manejarEnvio}>
+	<form class="auth__tarjeta" onsubmit={manejarEnvio}>
 		<h1>Crear cuenta</h1>
 		<p class="auth__subtitulo">Registrate para obtener tu código QR de acceso</p>
 
@@ -122,62 +131,95 @@
 			<p class="auth__error">{error}</p>
 		{/if}
 
-		<div class="campo">
-			<label for="nombre">Nombre completo</label>
-			<input id="nombre" type="text" bind:value={nombreCompleto} required />
+		<div class="campo-auth">
+			<input type="text" placeholder="Nombre completo" bind:value={nombreCompleto} required />
 		</div>
 
-		<div class="campo">
-			<label for="carnet">Carnet estudiantil</label>
-			<input id="carnet" type="text" bind:value={carnet} required />
+		<div class="campo-auth">
+			<input type="text" placeholder="Número de carné" bind:value={carnet} required />
 		</div>
 
-		<div class="campo">
-			<label for="correo">Correo institucional</label>
+		<div class="campo-auth">
+			<input type="email" placeholder="Correo electrónico" bind:value={correo} required />
+		</div>
+
+		<div class="campo-auth">
 			<input
-				id="correo"
-				type="email"
-				placeholder="nombre@unadeca.edu"
-				bind:value={correo}
+				type="password"
+				placeholder="Contraseña"
+				bind:value={contrasena}
 				required
+				minlength="6"
 			/>
 		</div>
 
-		<div class="campo">
-			<label for="contrasena">Contraseña</label>
-			<input id="contrasena" type="password" bind:value={contrasena} required minlength="6" />
-		</div>
-
-		<div class="campo">
-			<label for="foto">Fotografía de perfil</label>
-			<input id="foto" type="file" accept="image/*" onchange={manejarArchivo} required />
+		<label class="auth__foto" class:auth__foto--lista={rostroValidado}>
+			<input
+				type="file"
+				accept="image/*"
+				onchange={manejarArchivo}
+				required
+				class="auth__foto-input"
+			/>
 			{#if validandoRostro}
-				<small class="auth__ayuda">Validando que la foto tenga un rostro visible…</small>
+				Validando que la foto tenga un rostro visible…
 			{:else if rostroValidado}
-				<small class="auth__ayuda auth__ayuda--ok">Rostro detectado correctamente.</small>
+				✅ Rostro detectado correctamente
 			{:else}
-				<small class="auth__ayuda">Se valida automáticamente que contenga un rostro visible.</small>
+				Subir fotografía (obligatorio)
 			{/if}
-			{#if previsualizacion}
-				<img
-					class="auth__previsualizacion"
-					src={previsualizacion}
-					alt="Previsualización de la foto subida"
-				/>
-			{/if}
-		</div>
+		</label>
+
+		{#if previsualizacion}
+			<img
+				class="auth__previsualizacion"
+				src={previsualizacion}
+				alt="Previsualización de la foto subida"
+			/>
+		{/if}
 
 		<button
 			type="submit"
-			class="boton auth__enviar"
+			class="auth__enviar"
 			disabled={enviando || validandoRostro || !rostroValidado}
 		>
-			{enviando ? 'Creando cuenta…' : 'Registrarme'}
+			{enviando ? 'Creando cuenta…' : 'Registrarse'}
 		</button>
 
 		<p class="auth__enlace">¿Ya tenés cuenta? <a href="/login">Iniciá sesión</a></p>
 	</form>
 </div>
+
+{#if mostrarConsentimiento}
+	<div class="modal" role="dialog" aria-modal="true" aria-labelledby="titulo-consentimiento">
+		<div class="modal__tarjeta">
+			<h2 id="titulo-consentimiento">Consentimiento de Tratamiento de Datos Personales</h2>
+			<p class="modal__texto">
+				De acuerdo con la Ley N.° 8968 de Protección de la Persona frente al Tratamiento de sus
+				Datos Personales de Costa Rica, le informamos que sus datos personales (nombre, fotografía y
+				documento de identidad) serán utilizados exclusivamente para el control de acceso a las
+				instalaciones de la UNADECA. Sus datos serán almacenados de forma segura y podrá solicitar
+				su eliminación en cualquier momento desde su perfil.
+			</p>
+			<div class="modal__acciones">
+				<button
+					type="button"
+					class="modal__boton modal__boton--secundario"
+					onclick={() => (mostrarConsentimiento = false)}
+				>
+					Cancelar
+				</button>
+				<button
+					type="button"
+					class="modal__boton modal__boton--primario"
+					onclick={confirmarRegistro}
+				>
+					Acepto y continúo
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <style>
 	.auth {
@@ -185,18 +227,23 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: linear-gradient(160deg, var(--color-navy), var(--color-navy-light));
+		background-color: var(--color-navy);
 		padding: 1.5rem;
 	}
 
-	.auth__formulario {
+	.auth__tarjeta {
 		width: 100%;
 		max-width: 420px;
+		background-color: var(--color-surface);
+		border-radius: var(--radius-lg);
+		padding: 2rem;
+		box-sizing: border-box;
 	}
 
-	.auth__formulario h1 {
+	.auth__tarjeta h1 {
 		color: var(--color-navy);
-		margin-bottom: 0.25rem;
+		margin: 0 0 0.25rem;
+		text-align: center;
 	}
 
 	.auth__subtitulo {
@@ -204,6 +251,7 @@
 		font-size: 0.9rem;
 		margin-top: 0;
 		margin-bottom: 1.5rem;
+		text-align: center;
 	}
 
 	.auth__error {
@@ -215,25 +263,74 @@
 		margin: 0 0 1rem;
 	}
 
-	.auth__ayuda {
-		color: var(--color-text-muted);
+	.campo-auth {
+		margin-bottom: 0.9rem;
 	}
 
-	.auth__ayuda--ok {
+	.campo-auth input {
+		width: 100%;
+		height: 44px;
+		padding: 0 0.9rem;
+		border-radius: var(--radius);
+		border: 1px solid #ccc;
+		background-color: var(--color-input-bg);
+		font-family: inherit;
+		font-size: 0.9rem;
+		box-sizing: border-box;
+	}
+
+	.auth__foto {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 56px;
+		border-radius: var(--radius);
+		border: 1px solid var(--color-teal);
+		background-color: #eaf9ff;
+		color: var(--color-teal);
+		font-weight: bold;
+		font-size: 0.85rem;
+		text-align: center;
+		cursor: pointer;
+		margin-bottom: 0.9rem;
+		padding: 0 1rem;
+	}
+
+	.auth__foto--lista {
 		color: #1e7e34;
+		border-color: #1e7e34;
+		background-color: #eaf9ee;
+	}
+
+	.auth__foto-input {
+		position: absolute;
+		inset: 0;
+		opacity: 0;
+		cursor: pointer;
 	}
 
 	.auth__previsualizacion {
-		width: 96px;
-		height: 96px;
+		display: block;
+		width: 72px;
+		height: 72px;
 		object-fit: cover;
 		border-radius: var(--radius);
-		margin-top: 0.6rem;
+		margin: -0.4rem auto 0.9rem;
 		border: 1px solid var(--color-border);
 	}
 
 	.auth__enviar {
 		width: 100%;
+		height: 48px;
+		border: none;
+		border-radius: var(--radius);
+		background-color: var(--color-teal);
+		color: white;
+		font-family: inherit;
+		font-size: 1rem;
+		font-weight: bold;
+		cursor: pointer;
 	}
 
 	.auth__enviar:disabled {
@@ -243,7 +340,73 @@
 
 	.auth__enlace {
 		text-align: center;
+		font-size: 0.85rem;
+		margin: 1rem 0 0;
+	}
+
+	.auth__enlace a {
+		color: var(--color-teal);
+		font-weight: bold;
+	}
+
+	.modal {
+		position: fixed;
+		inset: 0;
+		background-color: rgba(13, 27, 75, 0.6);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 1.5rem;
+		z-index: 10;
+	}
+
+	.modal__tarjeta {
+		width: 100%;
+		max-width: 480px;
+		background-color: var(--color-surface);
+		border-radius: var(--radius-lg);
+		padding: 1.75rem;
+		box-sizing: border-box;
+	}
+
+	.modal__tarjeta h2 {
+		color: var(--color-navy);
+		font-size: 1.15rem;
+		margin: 0 0 1rem;
+	}
+
+	.modal__texto {
+		color: var(--color-text);
 		font-size: 0.9rem;
-		margin-bottom: 0;
+		line-height: 1.5;
+		margin: 0 0 1.5rem;
+	}
+
+	.modal__acciones {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.75rem;
+	}
+
+	.modal__boton {
+		height: 42px;
+		padding: 0 1.25rem;
+		border-radius: var(--radius);
+		font-family: inherit;
+		font-size: 0.9rem;
+		font-weight: bold;
+		cursor: pointer;
+		border: none;
+	}
+
+	.modal__boton--secundario {
+		background-color: transparent;
+		color: var(--color-navy);
+		border: 1px solid var(--color-border);
+	}
+
+	.modal__boton--primario {
+		background-color: var(--color-teal);
+		color: white;
 	}
 </style>
