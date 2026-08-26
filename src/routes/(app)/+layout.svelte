@@ -4,16 +4,24 @@
 	let { children } = $props();
 </script>
 
-<Navbar />
-
-<main class="contenedor">
-	{@render children()}
-</main>
+<div class="app-shell">
+	<Navbar />
+	<main class="app-shell__contenido">
+		{@render children()}
+	</main>
+</div>
 
 <style>
-	.contenedor {
-		max-width: 960px;
-		margin: 0 auto;
-		padding: 2rem 1.5rem;
+	.app-shell {
+		display: flex;
+		min-height: 100vh;
+		background-color: var(--color-navy);
+	}
+
+	.app-shell__contenido {
+		flex: 1;
+		padding: 2rem 2.5rem;
+		box-sizing: border-box;
+		min-width: 0;
 	}
 </style>
