@@ -1,7 +1,34 @@
 <script lang="ts">
-	// TODO (fase 2): conectar con supabase.auth.signInWithPassword y manejar errores reales.
+	import { goto, invalidateAll } from '$app/navigation';
+
+	let { data } = $props();
+	let supabase = $derived(data.supabase);
+
 	let correo = $state('');
 	let contrasena = $state('');
+	let enviando = $state(false);
+	let error = $state<string | null>(null);
+
+	async function manejarEnvio(evento: SubmitEvent) {
+		evento.preventDefault();
+		error = null;
+		enviando = true;
+
+		const { error: errorInicio } = await supabase.auth.signInWithPassword({
+			email: correo,
+			password: contrasena
+		});
+
+		enviando = false;
+
+		if (errorInicio) {
+			error = 'Correo o contraseña incorrectos.';
+			return;
+		}
+
+		await invalidateAll();
+		goto('/inicio');
+	}
 </script>
 
 <svelte:head>
@@ -9,9 +36,13 @@
 </svelte:head>
 
 <div class="auth">
-	<form class="tarjeta auth__formulario">
+	<form class="tarjeta auth__formulario" onsubmit={manejarEnvio}>
 		<h1>Iniciar sesión</h1>
 		<p class="auth__subtitulo">Sistema de control de acceso mediante código QR — UNADECA</p>
+
+		{#if error}
+			<p class="auth__error">{error}</p>
+		{/if}
 
 		<div class="campo">
 			<label for="correo">Correo institucional</label>
@@ -35,7 +66,9 @@
 			/>
 		</div>
 
-		<button type="submit" class="boton auth__enviar">Ingresar</button>
+		<button type="submit" class="boton auth__enviar" disabled={enviando}>
+			{enviando ? 'Ingresando…' : 'Ingresar'}
+		</button>
 
 		<p class="auth__enlace">¿No tenés cuenta? <a href="/registro">Registrate acá</a></p>
 	</form>
@@ -68,8 +101,22 @@
 		margin-bottom: 1.5rem;
 	}
 
+	.auth__error {
+		background-color: #fdecea;
+		color: #b3261e;
+		border-radius: var(--radius);
+		padding: 0.6rem 0.8rem;
+		font-size: 0.85rem;
+		margin: 0 0 1rem;
+	}
+
 	.auth__enviar {
 		width: 100%;
+	}
+
+	.auth__enviar:disabled {
+		opacity: 0.7;
+		cursor: not-allowed;
 	}
 
 	.auth__enlace {
