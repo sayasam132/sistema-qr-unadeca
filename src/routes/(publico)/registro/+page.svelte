@@ -64,7 +64,7 @@
 
 		enviando = true;
 		try {
-			const { data: alta, error: errorAlta } = await supabase.auth.signUp({
+			const { error: errorAlta } = await supabase.auth.signUp({
 				email: correo,
 				password: contrasena,
 				options: { data: { nombre_completo: nombreCompleto, carnet } }
@@ -78,13 +78,21 @@
 				return;
 			}
 
-			const usuario = alta.user;
-			if (!usuario || !alta.session) {
-				error =
-					'Te enviamos un correo de confirmación. Iniciá sesión luego de confirmarlo para completar tu registro.';
+			// signUp a veces no devuelve una sesión activa aunque la confirmación
+			// de correo esté desactivada; iniciamos sesión explícitamente para
+			// no depender de ese detalle.
+			const { data: sesion, error: errorSesion } = await supabase.auth.signInWithPassword({
+				email: correo,
+				password: contrasena
+			});
+
+			if (errorSesion || !sesion.user || !sesion.session) {
+				error = 'La cuenta se creó. Iniciá sesión con tu correo y contraseña para continuar.';
+				goto('/login');
 				return;
 			}
 
+			const usuario = sesion.user;
 			const extension = archivoFoto.name.split('.').pop() ?? 'jpg';
 			const rutaFoto = `${usuario.id}/perfil.${extension}`;
 
