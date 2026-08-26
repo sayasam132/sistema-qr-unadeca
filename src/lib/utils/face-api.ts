@@ -18,3 +18,13 @@ export async function cargarModelosFaciales(): Promise<void> {
 
 	modelosCargados = true;
 }
+
+/** Verifica que una imagen (archivo subido por el usuario) contenga un rostro detectable. */
+export async function contieneRostro(archivo: File): Promise<boolean> {
+	await cargarModelosFaciales();
+
+	const imagen = await faceapi.bufferToImage(archivo);
+	const deteccion = await faceapi.detectSingleFace(imagen, new faceapi.TinyFaceDetectorOptions());
+
+	return deteccion !== undefined;
+}
