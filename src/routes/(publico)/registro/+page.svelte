@@ -71,10 +71,10 @@
 			});
 
 			if (errorAlta) {
-				error =
-					errorAlta.message === 'User already registered'
-						? 'Ya existe una cuenta con ese correo.'
-						: 'No se pudo crear la cuenta. Revisá los datos e intentá de nuevo.';
+				error = /already registered|already exists/i.test(errorAlta.message)
+					? 'Ya existe una cuenta con ese correo.'
+					: `No se pudo crear la cuenta: ${errorAlta.message}`;
+				console.error('Error en signUp:', errorAlta);
 				return;
 			}
 
@@ -118,8 +118,9 @@
 
 			await invalidateAll();
 			goto('/inicio');
-		} catch {
+		} catch (excepcion) {
 			error = 'No se pudo completar el registro. Intentá de nuevo.';
+			console.error('Excepción en el registro:', excepcion);
 		} finally {
 			enviando = false;
 		}
