@@ -20,6 +20,9 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
+	<link rel="apple-touch-icon" href="/icon-192.png" />
+	<link rel="manifest" href="/manifest.json" />
+	<meta name="theme-color" content="#00b4d8" />
 	<title>UNADECA · Control de acceso QR</title>
 </svelte:head>
 
