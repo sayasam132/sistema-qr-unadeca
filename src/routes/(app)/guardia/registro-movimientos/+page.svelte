@@ -15,9 +15,6 @@
 
 	let busqueda = $state('');
 	let fecha = $state('');
-	let horaDesde = $state('');
-	let horaHasta = $state('');
-	let tipo = $state('');
 
 	function coincideTexto(movimiento: (typeof data.movimientos)[number]) {
 		if (!busqueda.trim()) return true;
@@ -40,28 +37,8 @@
 		return componentes.anio === anio && componentes.mes === mes && componentes.dia === dia;
 	}
 
-	function coincideHora(movimiento: (typeof data.movimientos)[number]) {
-		if (!horaDesde && !horaHasta) return true;
-		const componentes = obtenerComponentesCR(movimiento.created_at);
-		const horaMovimiento = `${String(componentes.hora).padStart(2, '0')}:${String(componentes.minuto).padStart(2, '0')}`;
-		if (horaDesde && horaMovimiento < horaDesde) return false;
-		if (horaHasta && horaMovimiento > horaHasta) return false;
-		return true;
-	}
-
-	function coincideTipo(movimiento: (typeof data.movimientos)[number]) {
-		if (!tipo) return true;
-		return movimiento.tipo === tipo;
-	}
-
 	let movimientosFiltrados = $derived(
-		data.movimientos.filter(
-			(movimiento) =>
-				coincideTexto(movimiento) &&
-				coincideFecha(movimiento) &&
-				coincideHora(movimiento) &&
-				coincideTipo(movimiento)
-		)
+		data.movimientos.filter((movimiento) => coincideTexto(movimiento) && coincideFecha(movimiento))
 	);
 
 	function formatearFecha(fecha: string) {
@@ -75,48 +52,18 @@
 	function limpiarFiltros() {
 		busqueda = '';
 		fecha = '';
-		horaDesde = '';
-		horaHasta = '';
-		tipo = '';
-	}
-
-	function escaparCsv(valor: string) {
-		if (/[",\n]/.test(valor)) {
-			return `"${valor.replace(/"/g, '""')}"`;
-		}
-		return valor;
-	}
-
-	function exportarCsv() {
-		const encabezados = ['Nombre', 'Identificación/Carné', 'Tipo', 'Fecha', 'Hora'];
-		const filas = movimientosFiltrados.map((movimiento) => [
-			`${movimiento.usuarios?.nombre ?? ''} ${movimiento.usuarios?.apellido ?? ''}`.trim(),
-			movimiento.usuarios?.identificacion || movimiento.usuarios?.carnet || '',
-			movimiento.tipo === 'entrada' ? 'Entrada' : 'Salida',
-			formatearFecha(movimiento.created_at),
-			formatearHora(movimiento.created_at)
-		]);
-
-		const contenido = [encabezados, ...filas]
-			.map((fila) => fila.map((valor) => escaparCsv(String(valor))).join(','))
-			.join('\n');
-
-		const bom = String.fromCharCode(0xfeff);
-		const blob = new Blob([bom + contenido], { type: 'text/csv;charset=utf-8;' });
-		const url = URL.createObjectURL(blob);
-		const enlace = document.createElement('a');
-		enlace.href = url;
-		enlace.download = `registro-movimientos-${new Date().toISOString().slice(0, 10)}.csv`;
-		enlace.click();
-		URL.revokeObjectURL(url);
 	}
 </script>
 
 <svelte:head>
-	<title>Registro de salidas/entradas · UNADECA</title>
+	<title>Registro de movimientos · UNADECA</title>
 </svelte:head>
 
-<PanelPagina titulo="Registro de salidas/entradas" subtitulo="Historial de accesos" {iniciales}>
+<PanelPagina
+	titulo="Registro de movimientos"
+	subtitulo="Historial de entradas y salidas"
+	{iniciales}
+>
 	<div class="filtros">
 		<input
 			type="text"
@@ -125,15 +72,7 @@
 			class="filtros__busqueda"
 		/>
 		<input type="date" bind:value={fecha} title="Fecha" />
-		<input type="time" bind:value={horaDesde} title="Hora desde" />
-		<input type="time" bind:value={horaHasta} title="Hora hasta" />
-		<select bind:value={tipo} title="Tipo">
-			<option value="">Todos</option>
-			<option value="entrada">Entrada</option>
-			<option value="salida">Salida</option>
-		</select>
 		<button type="button" class="filtros__limpiar" onclick={limpiarFiltros}>Limpiar</button>
-		<button type="button" class="filtros__exportar" onclick={exportarCsv}>⬇️ Exportar CSV</button>
 	</div>
 
 	{#if movimientosFiltrados.length === 0}
@@ -178,8 +117,7 @@
 		margin-bottom: 1.5rem;
 	}
 
-	.filtros input,
-	.filtros select {
+	.filtros input {
 		height: 40px;
 		padding: 0 0.8rem;
 		border-radius: var(--radius);
@@ -194,27 +132,17 @@
 		min-width: 220px;
 	}
 
-	.filtros__limpiar,
-	.filtros__exportar {
+	.filtros__limpiar {
 		height: 40px;
 		padding: 0 1rem;
 		border-radius: var(--radius);
-		border: none;
+		border: 1px solid var(--color-border);
+		background-color: var(--color-input-bg);
+		color: var(--color-navy);
 		font-family: inherit;
 		font-size: 0.85rem;
 		font-weight: bold;
 		cursor: pointer;
-	}
-
-	.filtros__limpiar {
-		background-color: var(--color-input-bg);
-		color: var(--color-navy);
-		border: 1px solid var(--color-border);
-	}
-
-	.filtros__exportar {
-		background-color: var(--color-navy);
-		color: white;
 	}
 
 	.registro__vacio {

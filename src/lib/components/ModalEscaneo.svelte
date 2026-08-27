@@ -31,6 +31,8 @@
 		tipo_usuario: string;
 	} | null>(null);
 
+	let confirmandoEntradaDuplicada = $state(false);
+
 	const etiquetasRol: Record<string, string> = {
 		estudiante: 'Estudiante',
 		visitante: 'Visitante',
@@ -93,20 +95,45 @@
 
 	function volverAEscanear() {
 		usuarioEscaneado = null;
+		confirmandoEntradaDuplicada = false;
 		error = null;
 		scanner?.start();
+	}
+
+	async function pedirRegistro(tipo: 'entrada' | 'salida') {
+		if (!usuarioEscaneado) return;
+		error = null;
+
+		if (tipo === 'entrada') {
+			const { data: ultimoMovimiento } = await supabase
+				.from('movimientos')
+				.select('tipo')
+				.eq('usuario_id', usuarioEscaneado.id)
+				.order('created_at', { ascending: false })
+				.limit(1)
+				.maybeSingle();
+
+			if (ultimoMovimiento?.tipo === 'entrada') {
+				confirmandoEntradaDuplicada = true;
+				return;
+			}
+		}
+
+		await registrarMovimiento(tipo);
 	}
 
 	async function registrarMovimiento(tipo: 'entrada' | 'salida') {
 		if (!usuarioEscaneado) return;
 
+		confirmandoEntradaDuplicada = false;
 		error = null;
 		registrando = true;
 		try {
 			const { error: errorInsert } = await supabase.from('movimientos').insert({
 				usuario_id: usuarioEscaneado.id,
 				registrado_por: guardiaId,
-				tipo
+				tipo,
+				resultado: 'permitido'
 			});
 
 			if (errorInsert) {
@@ -150,28 +177,52 @@
 				<p class="modal__error">{error}</p>
 			{/if}
 
-			<div class="modal__acciones">
-				<button
-					type="button"
-					class="modal__boton modal__boton--entrada"
-					disabled={registrando}
-					onclick={() => registrarMovimiento('entrada')}
-				>
-					Entrada
-				</button>
-				<button
-					type="button"
-					class="modal__boton modal__boton--salida"
-					disabled={registrando}
-					onclick={() => registrarMovimiento('salida')}
-				>
-					Salida
-				</button>
-			</div>
+			{#if confirmandoEntradaDuplicada}
+				<p class="modal__aviso">
+					Este usuario ya registró una entrada sin salida. ¿Confirmar de todas formas?
+				</p>
+				<div class="modal__acciones">
+					<button
+						type="button"
+						class="modal__boton modal__boton--entrada"
+						disabled={registrando}
+						onclick={() => registrarMovimiento('entrada')}
+					>
+						Confirmar
+					</button>
+					<button
+						type="button"
+						class="modal__boton modal__boton--cancelar"
+						disabled={registrando}
+						onclick={() => (confirmandoEntradaDuplicada = false)}
+					>
+						Cancelar
+					</button>
+				</div>
+			{:else}
+				<div class="modal__acciones">
+					<button
+						type="button"
+						class="modal__boton modal__boton--entrada"
+						disabled={registrando}
+						onclick={() => pedirRegistro('entrada')}
+					>
+						Entrada
+					</button>
+					<button
+						type="button"
+						class="modal__boton modal__boton--salida"
+						disabled={registrando}
+						onclick={() => pedirRegistro('salida')}
+					>
+						Salida
+					</button>
+				</div>
 
-			<button type="button" class="modal__link" onclick={volverAEscanear}>
-				Volver a escanear
-			</button>
+				<button type="button" class="modal__link" onclick={volverAEscanear}>
+					Volver a escanear
+				</button>
+			{/if}
 		{:else}
 			<p class="modal__instruccion">Apuntá la cámara al código QR del usuario</p>
 
@@ -292,6 +343,21 @@
 		font-size: 0.85rem;
 		margin: 0.75rem 0 0;
 		text-align: center;
+	}
+
+	.modal__aviso {
+		background-color: #fff8e1;
+		color: var(--color-navy);
+		border-radius: var(--radius);
+		padding: 0.8rem 1rem;
+		font-size: 0.85rem;
+		text-align: center;
+		margin: 0 0 1rem;
+	}
+
+	.modal__boton--cancelar {
+		background-color: var(--color-input-bg);
+		color: var(--color-navy);
 	}
 
 	.modal__exito {

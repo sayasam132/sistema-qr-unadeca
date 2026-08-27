@@ -24,7 +24,8 @@
 		{ href: '/inicio', etiqueta: 'Inicio', icono: '🏠' },
 		{ href: '/mi-qr', etiqueta: 'Mi QR', icono: '📱' },
 		{ href: '/mi-perfil', etiqueta: 'Mi perfil', icono: '👤' },
-		{ href: '/notificaciones', etiqueta: 'Notificaciones', icono: '🔔' }
+		{ href: '/notificaciones', etiqueta: 'Notificaciones', icono: '🔔' },
+		{ href: '/guardia/registro-movimientos', etiqueta: 'Registro de movimientos', icono: '📋' }
 	];
 
 	const enlacesPreceptor = [
