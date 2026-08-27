@@ -1,5 +1,4 @@
 import { redirect } from '@sveltejs/kit';
-import type { NombreRol } from '$lib/types';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({ locals: { session, user, supabase } }) => {
@@ -7,23 +6,13 @@ export const load: LayoutServerLoad = async ({ locals: { session, user, supabase
 		redirect(303, '/login');
 	}
 
-	const { data: fila } = await supabase
+	const { data: perfil } = await supabase
 		.from('usuarios')
-		.select('id, nombre_completo, carnet, foto_url, roles ( nombre )')
+		.select(
+			'id, nombre, apellido, correo, carnet, identificacion, hogar, genero, foto_url, qr_url, tipo_usuario, consentimiento'
+		)
 		.eq('id', user.id)
 		.single();
-
-	const rol = (fila?.roles as unknown as { nombre: NombreRol } | null)?.nombre ?? null;
-
-	const perfil = fila
-		? {
-				id: fila.id as string,
-				nombre_completo: fila.nombre_completo as string,
-				carnet: fila.carnet as string,
-				foto_url: fila.foto_url as string | null,
-				rol
-			}
-		: null;
 
 	return { session, user, perfil };
 };
