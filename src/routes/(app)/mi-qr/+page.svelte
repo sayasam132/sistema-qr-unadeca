@@ -6,11 +6,14 @@
 	let { data } = $props();
 
 	let perfil = $derived(page.data.perfil);
-	let primerNombre = $derived(perfil?.nombre_completo?.split(' ')[0] ?? '');
-	let iniciales = $derived(perfil ? obtenerIniciales(perfil.nombre_completo) : '');
+	let primerNombre = $derived(perfil?.nombre?.split(' ')[0] ?? '');
+	let iniciales = $derived(perfil ? obtenerIniciales(`${perfil.nombre} ${perfil.apellido}`) : '');
+	let esEstudiante = $derived(perfil?.tipo_usuario === 'estudiante');
 
 	const etiquetasRol: Record<string, string> = {
 		estudiante: 'Estudiante',
+		visitante: 'Visitante',
+		profesor: 'Profesor / Personal',
 		admin: 'Administrador',
 		guardia: 'Guardia'
 	};
@@ -20,7 +23,12 @@
 	<title>Mi QR · UNADECA</title>
 </svelte:head>
 
-<PanelPagina titulo="Mi Código QR" subtitulo={`Bienvenido, ${primerNombre}`} {iniciales}>
+<PanelPagina
+	titulo="Mi Código QR"
+	subtitulo={`Bienvenido, ${primerNombre}`}
+	{iniciales}
+	insigniaActiva={!esEstudiante}
+>
 	<div class="mi-qr">
 		<div class="mi-qr__foto">
 			{#if data.fotoUrl}
@@ -29,10 +37,17 @@
 		</div>
 
 		<div class="mi-qr__perfil">
-			<p class="mi-qr__nombre">{perfil?.nombre_completo}</p>
-			<p class="mi-qr__rol">{etiquetasRol[perfil?.rol ?? ''] ?? ''}</p>
-			<p class="mi-qr__dato">Carné: {perfil?.carnet}</p>
-			<span class="mi-qr__chip">✅ Activo</span>
+			<p class="mi-qr__nombre">{perfil?.nombre} {perfil?.apellido}</p>
+
+			{#if esEstudiante}
+				<p class="mi-qr__rol">{etiquetasRol[perfil?.tipo_usuario ?? ''] ?? ''}</p>
+				{#if perfil?.carnet}
+					<p class="mi-qr__dato">Carné: {perfil.carnet}</p>
+				{/if}
+				<span class="mi-qr__chip">✅ Activo</span>
+			{:else if perfil?.identificacion}
+				<p class="mi-qr__dato">Identificación: {perfil.identificacion}</p>
+			{/if}
 		</div>
 
 		<div class="mi-qr__codigo">
