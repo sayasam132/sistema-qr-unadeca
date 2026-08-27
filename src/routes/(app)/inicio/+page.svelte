@@ -318,4 +318,17 @@
 	.fila-movimiento--salida p {
 		color: var(--color-danger-strong);
 	}
+
+	@media (max-width: 600px) {
+		.inicio,
+		.inicio__resumen {
+			flex-direction: column;
+		}
+
+		.inicio__perfil,
+		.inicio__contenido,
+		.tarjeta-resumen {
+			min-width: 0;
+		}
+	}
 </style>

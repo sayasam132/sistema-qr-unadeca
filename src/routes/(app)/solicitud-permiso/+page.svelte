@@ -358,7 +358,7 @@
 
 	.modal__grilla {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 		gap: 0.9rem;
 		margin-bottom: 0.9rem;
 	}

@@ -207,10 +207,26 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 1.5rem;
+		flex-wrap: wrap;
+		gap: 1rem 1.5rem;
 		background-color: var(--color-input-bg);
 		border-radius: var(--radius);
 		padding: 1rem 1.25rem;
+	}
+
+	@media (max-width: 600px) {
+		.permiso__tarjeta {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.permiso__acciones {
+			width: 100%;
+		}
+
+		.permiso__boton {
+			flex: 1;
+		}
 	}
 
 	.permiso__nombre {

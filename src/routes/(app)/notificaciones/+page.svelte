@@ -146,6 +146,13 @@
 		white-space: nowrap;
 	}
 
+	@media (max-width: 600px) {
+		.fila-notif {
+			flex-direction: column;
+			align-items: flex-start;
+		}
+	}
+
 	.modal {
 		position: fixed;
 		inset: 0;
