@@ -1,16 +1,26 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import PanelPagina from '$lib/components/PanelPagina.svelte';
+	import ModalEscaneo from '$lib/components/ModalEscaneo.svelte';
 	import { obtenerIniciales } from '$lib/utils/texto';
+	import { formatearFechaHora } from '$lib/utils/fecha';
 
 	let { data } = $props();
+	let supabase = $derived(data.supabase);
 
 	let perfil = $derived(page.data.perfil);
-	let primerNombre = $derived(perfil?.nombre_completo?.split(' ')[0] ?? '');
-	let iniciales = $derived(perfil ? obtenerIniciales(perfil.nombre_completo) : '');
+	let primerNombre = $derived(perfil?.nombre?.split(' ')[0] ?? '');
+	let iniciales = $derived(perfil ? obtenerIniciales(`${perfil.nombre} ${perfil.apellido}`) : '');
+	let esEstudiante = $derived(perfil?.tipo_usuario === 'estudiante');
+	let esAdmin = $derived(perfil?.tipo_usuario === 'admin');
+	let esGuardia = $derived(perfil?.tipo_usuario === 'guardia');
+
+	let mostrarEscaneo = $state(false);
 
 	const etiquetasRol: Record<string, string> = {
 		estudiante: 'Estudiante',
+		visitante: 'Visitante',
+		profesor: 'Profesor / Personal',
 		admin: 'Administrador',
 		guardia: 'Guardia'
 	};
@@ -20,9 +30,19 @@
 		salida: { icono: '📤', etiqueta: 'Salida', clase: 'fila-movimiento--salida' }
 	};
 
+	const infoEstadoPermiso: Record<string, { icono: string; clase: string }> = {
+		pendiente: { icono: '⏳', clase: '' },
+		aprobada: { icono: '✅', clase: 'fila-movimiento--entrada' },
+		rechazada: { icono: '❌', clase: 'fila-movimiento--salida' }
+	};
+
+	const etiquetasTipoPermiso: Record<string, string> = {
+		fin_de_semana: 'Fin de semana',
+		salida_dia: 'Salida del día'
+	};
+
 	function formatearFecha(fecha: string) {
-		const d = new Date(fecha);
-		return `${d.toLocaleDateString('es-CR')} | ${d.toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}`;
+		return formatearFechaHora(fecha, ' | ');
 	}
 </script>
 
@@ -30,54 +50,122 @@
 	<title>Inicio · UNADECA</title>
 </svelte:head>
 
-<PanelPagina titulo="Inicio" subtitulo={`Bienvenido, ${primerNombre}`} {iniciales}>
-	<div class="inicio">
-		<div class="inicio__perfil">
-			<p class="inicio__nombre">{perfil?.nombre_completo}</p>
-			<p class="inicio__rol">{etiquetasRol[perfil?.rol ?? ''] ?? ''}</p>
-			<p class="inicio__dato">Carné: {perfil?.carnet}</p>
-			<span class="inicio__chip">✅ Activo</span>
-		</div>
+<PanelPagina
+	titulo={esAdmin ? 'Inicio Admin' : 'Inicio'}
+	subtitulo={`Bienvenido, ${primerNombre}`}
+	{iniciales}
+	insigniaActiva={!esEstudiante}
+>
+	{#if esAdmin}
+		<a class="inicio__badge-notif" href="/notificaciones">
+			🔔 Notificaciones
+			{#if data.notificacionesPendientes > 0}
+				<span class="inicio__badge-numero">{data.notificacionesPendientes}</span>
+			{/if}
+		</a>
 
-		<div class="inicio__contenido">
-			<div class="inicio__resumen">
-				<div class="tarjeta-resumen tarjeta-resumen--notif">
-					<p class="tarjeta-resumen__titulo">🔔 Notificaciones</p>
-					<p class="tarjeta-resumen__texto">
-						{data.notificacionesPendientes > 0
-							? `Tenés ${data.notificacionesPendientes} notificación(es) sin leer`
-							: 'No tenés notificaciones pendientes'}
+		<p class="inicio__subtitulo-seccion">Registro de permisos</p>
+
+		{#if data.permisosRecientes.length === 0}
+			<div class="fila-movimiento">
+				<p>Todavía no hay solicitudes registradas.</p>
+			</div>
+		{:else}
+			{#each data.permisosRecientes as permiso (permiso.id)}
+				<div class="fila-movimiento {infoEstadoPermiso[permiso.estado]?.clase ?? ''}">
+					<p>
+						{infoEstadoPermiso[permiso.estado]?.icono ?? ''}
+						{permiso.usuarios?.nombre}
+						{permiso.usuarios?.apellido} ·
+						{etiquetasTipoPermiso[permiso.tipo_permiso] ?? permiso.tipo_permiso} · {formatearFecha(
+							permiso.created_at
+						)}
 					</p>
 				</div>
-				<div class="tarjeta-resumen tarjeta-resumen--permiso">
-					<p class="tarjeta-resumen__titulo">📋 Solicitud de permiso</p>
-					<p class="tarjeta-resumen__texto">
-						{data.permisosPendientes > 0
-							? `Tenés ${data.permisosPendientes} solicitud(es) pendiente(s)`
-							: 'No tenés solicitudes activas'}
-					</p>
-				</div>
+			{/each}
+		{/if}
+	{:else}
+		<div class="inicio">
+			<div class="inicio__perfil">
+				<p class="inicio__nombre">{perfil?.nombre} {perfil?.apellido}</p>
+
+				{#if esEstudiante}
+					<p class="inicio__rol">{etiquetasRol[perfil?.tipo_usuario ?? ''] ?? ''}</p>
+					{#if perfil?.carnet}
+						<p class="inicio__dato">Carné: {perfil.carnet}</p>
+					{/if}
+					<span class="inicio__chip">✅ Activo</span>
+				{:else}
+					<p class="inicio__rol">{etiquetasRol[perfil?.tipo_usuario ?? ''] ?? ''}</p>
+					{#if perfil?.identificacion}
+						<p class="inicio__dato">Identificación: {perfil.identificacion}</p>
+					{/if}
+				{/if}
+
+				{#if esGuardia}
+					<button
+						type="button"
+						class="inicio__boton-escaneo"
+						onclick={() => (mostrarEscaneo = true)}
+					>
+						📷 Iniciar Escaneo
+					</button>
+				{/if}
 			</div>
 
-			<p class="inicio__subtitulo-seccion">Últimos movimientos</p>
-
-			{#if data.movimientos.length === 0}
-				<div class="fila-movimiento">
-					<p>Todavía no tenés movimientos registrados.</p>
-				</div>
-			{:else}
-				{#each data.movimientos as movimiento (movimiento.id)}
-					<div class="fila-movimiento {infoMovimiento[movimiento.tipo].clase}">
-						<p>
-							{infoMovimiento[movimiento.tipo].icono}
-							{infoMovimiento[movimiento.tipo].etiqueta} | {formatearFecha(movimiento.creado_en)}
-						</p>
+			<div class="inicio__contenido">
+				{#if esEstudiante}
+					<div class="inicio__resumen">
+						<div class="tarjeta-resumen tarjeta-resumen--notif">
+							<p class="tarjeta-resumen__titulo">🔔 Notificaciones</p>
+							<p class="tarjeta-resumen__texto">
+								{data.notificacionesPendientes > 0
+									? `Tenés ${data.notificacionesPendientes} notificación(es) sin leer`
+									: 'No tenés notificaciones pendientes'}
+							</p>
+						</div>
+						<div class="tarjeta-resumen tarjeta-resumen--permiso">
+							<p class="tarjeta-resumen__titulo">📋 Solicitud de permiso</p>
+							<p class="tarjeta-resumen__texto">
+								{data.permisosPendientes > 0
+									? `Tenés ${data.permisosPendientes} solicitud(es) pendiente(s)`
+									: 'No tenés solicitudes activas'}
+							</p>
+						</div>
 					</div>
-				{/each}
-			{/if}
+				{:else}
+					<a class="inicio__badge-notif" href="/notificaciones">
+						🔔 Notificaciones
+						{#if data.notificacionesPendientes > 0}
+							<span class="inicio__badge-numero">{data.notificacionesPendientes}</span>
+						{/if}
+					</a>
+				{/if}
+
+				<p class="inicio__subtitulo-seccion">Últimos movimientos</p>
+
+				{#if data.movimientos.length === 0}
+					<div class="fila-movimiento">
+						<p>Todavía no tenés movimientos registrados.</p>
+					</div>
+				{:else}
+					{#each data.movimientos as movimiento (movimiento.id)}
+						<div class="fila-movimiento {infoMovimiento[movimiento.tipo].clase}">
+							<p>
+								{infoMovimiento[movimiento.tipo].icono}
+								{infoMovimiento[movimiento.tipo].etiqueta} | {formatearFecha(movimiento.created_at)}
+							</p>
+						</div>
+					{/each}
+				{/if}
+			</div>
 		</div>
-	</div>
+	{/if}
 </PanelPagina>
+
+{#if mostrarEscaneo && perfil}
+	<ModalEscaneo {supabase} guardiaId={perfil.id} cerrar={() => (mostrarEscaneo = false)} />
+{/if}
 
 <style>
 	.inicio {
@@ -107,6 +195,23 @@
 		color: #555;
 		font-size: 0.9rem;
 		margin: 0 0 0.3rem;
+	}
+
+	.inicio__boton-escaneo {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		height: 40px;
+		padding: 0 1.1rem;
+		margin-top: 1rem;
+		border: none;
+		border-radius: var(--radius);
+		background-color: var(--color-teal);
+		color: white;
+		font-family: inherit;
+		font-size: 0.85rem;
+		font-weight: bold;
+		cursor: pointer;
 	}
 
 	.inicio__chip {
@@ -161,11 +266,40 @@
 		margin: 0;
 	}
 
+	.inicio__badge-notif {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		float: right;
+		padding: 0.5rem 0.9rem;
+		border-radius: 999px;
+		background-color: #fff8e1;
+		color: var(--color-navy);
+		font-weight: bold;
+		font-size: 0.8rem;
+		text-decoration: none;
+		margin-bottom: 1.75rem;
+	}
+
+	.inicio__badge-numero {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 18px;
+		height: 18px;
+		padding: 0 0.3rem;
+		border-radius: 999px;
+		background-color: var(--color-danger-strong);
+		color: white;
+		font-size: 0.7rem;
+	}
+
 	.inicio__subtitulo-seccion {
 		font-weight: bold;
 		color: var(--color-navy);
 		font-size: 0.95rem;
 		margin: 0 0 0.8rem;
+		clear: both;
 	}
 
 	.fila-movimiento {

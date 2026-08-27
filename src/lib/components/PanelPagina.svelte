@@ -5,11 +5,13 @@
 		titulo,
 		subtitulo,
 		iniciales,
+		insigniaActiva = false,
 		children
 	}: {
 		titulo: string;
 		subtitulo?: string;
 		iniciales?: string;
+		insigniaActiva?: boolean;
 		children: Snippet;
 	} = $props();
 </script>
@@ -17,7 +19,12 @@
 <section class="panel">
 	<header class="panel__cabecera">
 		<div>
-			<h1>{titulo}</h1>
+			<h1>
+				{titulo}
+				{#if insigniaActiva}
+					<span class="panel__insignia" title="Cuenta activa" aria-hidden="true">✅</span>
+				{/if}
+			</h1>
 			{#if subtitulo}
 				<p class="panel__subtitulo">{subtitulo}</p>
 			{/if}
@@ -55,6 +62,19 @@
 		margin: 0 0 0.4rem;
 		color: var(--color-navy);
 		font-size: 1.75rem;
+	}
+
+	.panel__insignia {
+		display: inline-flex;
+		width: 22px;
+		height: 22px;
+		align-items: center;
+		justify-content: center;
+		border-radius: 50%;
+		background-color: var(--color-mint);
+		font-size: 0.75rem;
+		vertical-align: middle;
+		margin-left: 0.3rem;
 	}
 
 	.panel__subtitulo {
