@@ -142,21 +142,25 @@
 					</a>
 				{/if}
 
-				<p class="inicio__subtitulo-seccion">Últimos movimientos</p>
+				{#if !esGuardia}
+					<p class="inicio__subtitulo-seccion">Últimos movimientos</p>
 
-				{#if data.movimientos.length === 0}
-					<div class="fila-movimiento">
-						<p>Todavía no tenés movimientos registrados.</p>
-					</div>
-				{:else}
-					{#each data.movimientos as movimiento (movimiento.id)}
-						<div class="fila-movimiento {infoMovimiento[movimiento.tipo].clase}">
-							<p>
-								{infoMovimiento[movimiento.tipo].icono}
-								{infoMovimiento[movimiento.tipo].etiqueta} | {formatearFecha(movimiento.created_at)}
-							</p>
+					{#if data.movimientos.length === 0}
+						<div class="fila-movimiento">
+							<p>Todavía no tenés movimientos registrados.</p>
 						</div>
-					{/each}
+					{:else}
+						{#each data.movimientos as movimiento (movimiento.id)}
+							<div class="fila-movimiento {infoMovimiento[movimiento.tipo].clase}">
+								<p>
+									{infoMovimiento[movimiento.tipo].icono}
+									{infoMovimiento[movimiento.tipo].etiqueta} | {formatearFecha(
+										movimiento.created_at
+									)}
+								</p>
+							</div>
+						{/each}
+					{/if}
 				{/if}
 			</div>
 		</div>

@@ -32,6 +32,8 @@ export const load: PageServerLoad = async ({ parent, locals: { supabase, user } 
 		};
 	}
 
+	const esGuardia = perfil?.tipo_usuario === 'guardia';
+
 	const [
 		{ count: notificacionesPendientes },
 		{ count: permisosPendientes },
@@ -47,12 +49,14 @@ export const load: PageServerLoad = async ({ parent, locals: { supabase, user } 
 			.select('id', { count: 'exact', head: true })
 			.eq('usuario_id', user!.id)
 			.eq('estado', 'pendiente'),
-		supabase
-			.from('movimientos')
-			.select('id, tipo, created_at')
-			.eq('usuario_id', user!.id)
-			.order('created_at', { ascending: false })
-			.limit(2)
+		esGuardia
+			? Promise.resolve({ data: [] })
+			: supabase
+					.from('movimientos')
+					.select('id, tipo, created_at')
+					.eq('usuario_id', user!.id)
+					.order('created_at', { ascending: false })
+					.limit(2)
 	]);
 
 	return {

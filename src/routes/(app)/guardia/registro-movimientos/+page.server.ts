@@ -3,7 +3,9 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals: { supabase } }) => {
 	const { data } = await supabase
 		.from('movimientos')
-		.select('id, tipo, created_at, usuarios ( nombre, apellido, identificacion, carnet )')
+		.select(
+			'id, tipo, created_at, usuarios!movimientos_usuario_id_fkey ( nombre, apellido, identificacion, carnet )'
+		)
 		.order('created_at', { ascending: false })
 		.limit(500);
 
