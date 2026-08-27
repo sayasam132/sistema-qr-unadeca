@@ -1,14 +1,24 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
 	import { contieneRostro } from '$lib/utils/face-api';
+	import { generarCodigoQR } from '$lib/utils/qr';
 
 	let { data } = $props();
 	let supabase = $derived(data.supabase);
 
-	let nombreCompleto = $state('');
-	let carnet = $state('');
+	type Tipo = 'estudiante' | 'visitante' | 'profesor';
+	let tipo = $state<Tipo>('estudiante');
+
+	let nombre = $state('');
+	let apellido = $state('');
 	let correo = $state('');
 	let contrasena = $state('');
+	let carnet = $state('');
+	let identificacion = $state('');
+	let codigo = $state('');
+	let hogar = $state<'interno' | 'externo'>('interno');
+	let genero = $state<'masculino' | 'femenino'>('masculino');
+
 	let archivoFoto = $state<File | null>(null);
 	let previsualizacion = $state<string | null>(null);
 
@@ -17,6 +27,11 @@
 	let enviando = $state(false);
 	let error = $state<string | null>(null);
 	let mostrarConsentimiento = $state(false);
+
+	function cambiarTipo(nuevoTipo: Tipo) {
+		tipo = nuevoTipo;
+		error = null;
+	}
 
 	async function manejarArchivo(evento: Event) {
 		error = null;
@@ -45,13 +60,29 @@
 		}
 	}
 
-	function manejarEnvio(evento: SubmitEvent) {
+	async function manejarEnvio(evento: SubmitEvent) {
 		evento.preventDefault();
 		error = null;
 
 		if (!archivoFoto || !rostroValidado) {
 			error = 'Subí una foto con tu rostro visible antes de continuar.';
 			return;
+		}
+
+		if (tipo === 'profesor') {
+			const { data: codigoValido, error: errorCodigo } = await supabase.rpc(
+				'verificar_codigo_acceso',
+				{ p_tipo: tipo, p_codigo: codigo }
+			);
+			if (errorCodigo) {
+				error = `No se pudo verificar el código: ${errorCodigo.message}`;
+				console.error('Error en verificar_codigo_acceso:', errorCodigo);
+				return;
+			}
+			if (!codigoValido) {
+				error = 'El código de acceso no es válido.';
+				return;
+			}
 		}
 
 		mostrarConsentimiento = true;
@@ -67,7 +98,7 @@
 			const { error: errorAlta } = await supabase.auth.signUp({
 				email: correo,
 				password: contrasena,
-				options: { data: { nombre_completo: nombreCompleto, carnet } }
+				options: { data: { nombre, apellido, tipo_usuario: tipo } }
 			});
 
 			if (errorAlta) {
@@ -93,6 +124,28 @@
 			}
 
 			const usuario = sesion.user;
+
+			// No hay trigger automático en auth.users: el perfil se crea acá,
+			// justo después de tener la sesión activa.
+			const { error: errorPerfil } = await supabase.from('usuarios').insert({
+				id: usuario.id,
+				nombre,
+				apellido,
+				correo,
+				tipo_usuario: tipo,
+				carnet: tipo === 'estudiante' ? carnet : null,
+				identificacion,
+				hogar: tipo === 'estudiante' ? hogar : null,
+				genero: tipo === 'estudiante' ? genero : null,
+				consentimiento: true
+			});
+
+			if (errorPerfil) {
+				error = `La cuenta se creó, pero no se pudo guardar el perfil: ${errorPerfil.message}`;
+				console.error('Error al crear el perfil:', errorPerfil);
+				return;
+			}
+
 			const extension = archivoFoto.name.split('.').pop() ?? 'jpg';
 			const rutaFoto = `${usuario.id}/perfil.${extension}`;
 
@@ -103,17 +156,43 @@
 			if (errorSubida) {
 				error =
 					'La cuenta se creó, pero no se pudo subir la foto. Podés reintentarlo luego desde tu perfil.';
+				console.error('Error al subir la foto:', errorSubida);
 				return;
 			}
 
-			const { error: errorPerfil } = await supabase
+			const { error: errorFoto } = await supabase
 				.from('usuarios')
 				.update({ foto_url: rutaFoto })
 				.eq('id', usuario.id);
 
-			if (errorPerfil) {
+			if (errorFoto) {
 				error = 'La cuenta y la foto se guardaron, pero no se pudo vincular la foto a tu perfil.';
 				return;
+			}
+
+			// Generamos el QR de acceso (a partir del id del usuario) y lo
+			// guardamos como PNG junto a la foto. Si esto falla no bloqueamos
+			// el registro: /mi-qr genera uno al vuelo como respaldo.
+			try {
+				const qrDataUrl = await generarCodigoQR(usuario.id);
+				const blobQr = await (await fetch(qrDataUrl)).blob();
+				const rutaQr = `${usuario.id}/qr.png`;
+
+				const { error: errorSubidaQr } = await supabase.storage
+					.from('fotos-perfil')
+					.upload(rutaQr, blobQr, { contentType: 'image/png', upsert: true });
+
+				if (errorSubidaQr) {
+					console.error('Error al subir el QR:', errorSubidaQr);
+				} else {
+					const { error: errorQrUrl } = await supabase
+						.from('usuarios')
+						.update({ qr_url: rutaQr })
+						.eq('id', usuario.id);
+					if (errorQrUrl) console.error('Error al guardar qr_url:', errorQrUrl);
+				}
+			} catch (excepcionQr) {
+				console.error('Excepción al generar/subir el QR:', excepcionQr);
 			}
 
 			await invalidateAll();
@@ -134,18 +213,45 @@
 <div class="auth">
 	<form class="auth__tarjeta" onsubmit={manejarEnvio}>
 		<h1>Crear cuenta</h1>
-		<p class="auth__subtitulo">Registrate para obtener tu código QR de acceso</p>
+		<p class="auth__subtitulo">selecciona tu tipo de usuario</p>
+
+		<div class="auth__tabs">
+			<button
+				type="button"
+				class="auth__tab"
+				class:auth__tab--activa={tipo === 'estudiante'}
+				onclick={() => cambiarTipo('estudiante')}
+			>
+				Estudiante
+			</button>
+			<button
+				type="button"
+				class="auth__tab"
+				class:auth__tab--activa={tipo === 'visitante'}
+				onclick={() => cambiarTipo('visitante')}
+			>
+				Visitante
+			</button>
+			<button
+				type="button"
+				class="auth__tab"
+				class:auth__tab--activa={tipo === 'profesor'}
+				onclick={() => cambiarTipo('profesor')}
+			>
+				Profesor/Admin
+			</button>
+		</div>
 
 		{#if error}
 			<p class="auth__error">{error}</p>
 		{/if}
 
 		<div class="campo-auth">
-			<input type="text" placeholder="Nombre completo" bind:value={nombreCompleto} required />
+			<input type="text" placeholder="Nombres" bind:value={nombre} required />
 		</div>
 
 		<div class="campo-auth">
-			<input type="text" placeholder="Número de carné" bind:value={carnet} required />
+			<input type="text" placeholder="Apellido" bind:value={apellido} required />
 		</div>
 
 		<div class="campo-auth">
@@ -161,6 +267,63 @@
 				minlength="6"
 			/>
 		</div>
+
+		{#if tipo === 'estudiante'}
+			<div class="campo-auth">
+				<input type="text" placeholder="Número de carné" bind:value={carnet} required />
+			</div>
+		{/if}
+
+		<div class="campo-auth">
+			<input type="text" placeholder="Pasaporte/Cédula" bind:value={identificacion} required />
+		</div>
+
+		{#if tipo === 'profesor'}
+			<div class="campo-auth">
+				<input type="text" placeholder="Código" bind:value={codigo} required />
+			</div>
+		{/if}
+
+		{#if tipo === 'estudiante'}
+			<div class="auth__toggles">
+				<div class="auth__toggle-grupo">
+					<button
+						type="button"
+						class="auth__pill"
+						class:auth__pill--activa={hogar === 'interno'}
+						onclick={() => (hogar = 'interno')}
+					>
+						Interno
+					</button>
+					<button
+						type="button"
+						class="auth__pill"
+						class:auth__pill--activa={hogar === 'externo'}
+						onclick={() => (hogar = 'externo')}
+					>
+						Externo
+					</button>
+				</div>
+				<div class="auth__toggle-grupo">
+					<button
+						type="button"
+						class="auth__pill"
+						class:auth__pill--activa={genero === 'masculino'}
+						onclick={() => (genero = 'masculino')}
+					>
+						Masculino
+					</button>
+					<button
+						type="button"
+						class="auth__pill"
+						class:auth__pill--activa={genero === 'femenino'}
+						onclick={() => (genero = 'femenino')}
+					>
+						Femenino
+					</button>
+				</div>
+			</div>
+		{/if}
 
 		<label class="auth__foto" class:auth__foto--lista={rostroValidado}>
 			<input
@@ -242,7 +405,7 @@
 
 	.auth__tarjeta {
 		width: 100%;
-		max-width: 420px;
+		max-width: 460px;
 		background-color: var(--color-surface);
 		border-radius: var(--radius-lg);
 		padding: 2rem;
@@ -257,10 +420,35 @@
 
 	.auth__subtitulo {
 		color: var(--color-text-muted);
-		font-size: 0.9rem;
+		font-size: 0.85rem;
 		margin-top: 0;
-		margin-bottom: 1.5rem;
+		margin-bottom: 1rem;
 		text-align: center;
+	}
+
+	.auth__tabs {
+		display: flex;
+		gap: 0.5rem;
+		margin-bottom: 1.25rem;
+	}
+
+	.auth__tab {
+		flex: 1;
+		height: 40px;
+		border-radius: var(--radius);
+		border: 1px solid #ccc;
+		background-color: var(--color-input-bg);
+		color: var(--color-navy);
+		font-family: inherit;
+		font-size: 0.8rem;
+		font-weight: bold;
+		cursor: pointer;
+	}
+
+	.auth__tab--activa {
+		background-color: var(--color-teal);
+		border-color: var(--color-teal);
+		color: white;
 	}
 
 	.auth__error {
@@ -286,6 +474,37 @@
 		font-family: inherit;
 		font-size: 0.9rem;
 		box-sizing: border-box;
+	}
+
+	.auth__toggles {
+		display: flex;
+		justify-content: space-between;
+		gap: 1.5rem;
+		margin-bottom: 0.9rem;
+	}
+
+	.auth__toggle-grupo {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+
+	.auth__pill {
+		height: 26px;
+		padding: 0 0.9rem;
+		border-radius: 999px;
+		border: none;
+		background-color: var(--color-input-bg);
+		color: var(--color-navy);
+		font-family: inherit;
+		font-size: 0.7rem;
+		font-weight: bold;
+		cursor: pointer;
+	}
+
+	.auth__pill--activa {
+		background-color: var(--color-teal);
+		color: white;
 	}
 
 	.auth__foto {
