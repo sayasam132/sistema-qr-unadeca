@@ -4,7 +4,7 @@
 	import { obtenerIniciales } from '$lib/utils/texto';
 
 	let perfil = $derived(page.data.perfil);
-	let iniciales = $derived(perfil ? obtenerIniciales(perfil.nombre_completo) : '');
+	let iniciales = $derived(perfil ? obtenerIniciales(`${perfil.nombre} ${perfil.apellido}`) : '');
 
 	const secciones = [
 		{ icono: '👥', titulo: 'Usuarios', texto: 'Gestioná las cuentas y roles del sistema.' },
